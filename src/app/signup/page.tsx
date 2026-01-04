@@ -4,8 +4,19 @@ import { Suspense, useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { HeartPulse, Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, User, Building2 } from 'lucide-react'
+import {
+  HeartPulse,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  Loader2,
+  User,
+  Building2
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+
 
 type Role = 'buyer' | 'seller' | 'both'
 
