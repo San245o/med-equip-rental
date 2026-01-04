@@ -300,7 +300,7 @@ export default function DashboardClient({
                         <Package className="w-12 h-12 mx-auto mb-3 opacity-50" />
                         <p>No equipment listed yet</p>
                         <button
-                          onClick={() => setShowAddEquipment(true)}
+                          onClick={() => router.push('/dashboard/add-equipment')}
                           className="mt-3 text-emerald-500 hover:text-emerald-400 font-medium text-sm"
                         >
                           Add your first equipment

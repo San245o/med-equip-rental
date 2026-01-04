@@ -405,7 +405,7 @@ export default function DashboardClient({
                         <div className="px-4 py-8 text-center">
                           <p className="text-[#525252] text-sm mb-3">No equipment listed yet</p>
                           <button
-                            onClick={() => setShowAddEquipment(true)}
+                            onClick={() => router.push('/dashboard/add-equipment')}
                             className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
                           >
                             + Add your first equipment
