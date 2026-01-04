@@ -230,7 +230,7 @@ export default function RentalRequestModal({ isOpen, onClose, equipment }: Renta
               </div>
 
               {/* Form */}
-              <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <form onSubmit={handleSubmit} className="p-6 space-y-4 pb-24">
                 {error && (
                   <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
                     {error}
@@ -328,29 +328,42 @@ export default function RentalRequestModal({ isOpen, onClose, equipment }: Renta
                   </div>
                 )}
 
-                {/* Submit */}
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="flex-1 py-3 rounded-xl border border-gray-700 font-medium hover:bg-gray-800 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={loading || days === 0}
-                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 font-medium hover:shadow-lg hover:shadow-teal-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        Submitting...
-                      </>
-                    ) : (
-                      'Submit Request'
-                    )}
-                  </button>
+                {/* Submit - sticky footer */}
+                <div className="pointer-events-none">
+                  <div className="fixed inset-x-0 bottom-0 flex justify-center px-6 pb-6">
+                    <div className="w-full max-w-lg rounded-2xl border border-gray-800 bg-gray-900/90 backdrop-blur p-4 shadow-2xl pointer-events-auto">
+                      <div className="flex flex-col gap-1 text-xs text-gray-400 mb-3">
+                        <span>Select start/end dates and pin the delivery location to enable the button.</span>
+                        {(!formData.delivery_latitude || !formData.delivery_longitude) && (
+                          <span className="text-amber-400">Delivery location is required.</span>
+                        )}
+                        {days === 0 && <span className="text-amber-400">Pick both dates to continue.</span>}
+                      </div>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={onClose}
+                          className="flex-1 py-3 rounded-xl border border-gray-700 font-medium hover:bg-gray-800 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={loading || days === 0 || !formData.delivery_latitude || !formData.delivery_longitude}
+                          className="flex-1 py-3 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 font-medium hover:shadow-lg hover:shadow-teal-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                          {loading ? (
+                            <>
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                              Submitting...
+                            </>
+                          ) : (
+                            'Submit Request'
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </form>
             </>

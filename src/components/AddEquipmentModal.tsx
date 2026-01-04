@@ -282,7 +282,7 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+          <form onSubmit={handleSubmit} className="relative p-6 overflow-y-auto max-h-[calc(90vh-140px)] pb-28">
             {error && (
               <div className="mb-6 p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
                 {error}
@@ -500,29 +500,41 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
               </div>
             </div>
 
-            {/* Submit */}
-            <div className="flex gap-3 mt-6 pt-6 border-t border-gray-800">
-              <button
-                type="button"
-                onClick={() => { resetForm(); onClose(); }}
-                className="flex-1 py-3 rounded-xl border border-gray-700 font-medium hover:bg-gray-800 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading || !formData.latitude || !formData.longitude}
-                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 font-medium hover:shadow-lg hover:shadow-teal-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Adding...
-                  </>
-                ) : (
-                  'Add Equipment'
-                )}
-              </button>
+            {/* Submit - sticky footer */}
+            <div className="pointer-events-none">
+              <div className="fixed inset-x-0 bottom-0 flex justify-center px-6 pb-6">
+                <div className="w-full max-w-2xl rounded-2xl border border-gray-800 bg-gray-900/90 backdrop-blur p-4 shadow-2xl pointer-events-auto">
+                  <div className="flex flex-col gap-2 text-xs text-gray-400 mb-3">
+                    <span>Tip: Pin the equipment location on the map to enable the button.</span>
+                    {!formData.latitude || !formData.longitude ? (
+                      <span className="text-amber-400">Location is required to add equipment.</span>
+                    ) : null}
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => { resetForm(); onClose(); }}
+                      className="flex-1 py-3 rounded-xl border border-gray-700 font-medium hover:bg-gray-800 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={loading || !formData.latitude || !formData.longitude}
+                      className="flex-1 py-3 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 font-medium hover:shadow-lg hover:shadow-teal-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Adding...
+                        </>
+                      ) : (
+                        'Add Equipment'
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </form>
         </motion.div>

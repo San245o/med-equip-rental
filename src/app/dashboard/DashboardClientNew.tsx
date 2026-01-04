@@ -34,7 +34,6 @@ import { Profile, Category, Equipment, Rental } from '@/types'
 import { formatCurrency, formatDate, getStatusColor, getConditionLabel } from '@/lib/utils'
 import EquipmentCard from '@/components/EquipmentCard'
 import RentalCard from '@/components/RentalCard'
-import AddEquipmentModal from '@/components/AddEquipmentModal'
 import dynamic from 'next/dynamic'
 
 // Dynamic import for map (client-side only)
@@ -75,7 +74,6 @@ export default function DashboardClient({
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [showAddEquipment, setShowAddEquipment] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
 
@@ -214,7 +212,7 @@ export default function DashboardClient({
             <div className="flex items-center gap-3">
               {/* Add Equipment Button */}
               <button
-                onClick={() => setShowAddEquipment(true)}
+                onClick={() => router.push('/dashboard/add-equipment')}
                 className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-black text-sm font-medium rounded-lg transition-colors"
               >
                 <Plus className="w-4 h-4" />
@@ -480,7 +478,7 @@ export default function DashboardClient({
                     <p className="text-sm text-[#737373] mt-1">{myEquipment.length} items listed</p>
                   </div>
                   <button
-                    onClick={() => setShowAddEquipment(true)}
+                    onClick={() => router.push('/dashboard/add-equipment')}
                     className="flex items-center gap-2 px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-black text-sm font-medium rounded-lg transition-colors"
                   >
                     <Plus className="w-4 h-4" />
@@ -500,7 +498,7 @@ export default function DashboardClient({
                     <h3 className="text-lg font-medium mb-2">No equipment yet</h3>
                     <p className="text-sm text-[#737373] mb-4">Start by listing your first piece of equipment</p>
                     <button
-                      onClick={() => setShowAddEquipment(true)}
+                      onClick={() => router.push('/dashboard/add-equipment')}
                       className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-black text-sm font-medium rounded-lg transition-colors"
                     >
                       <Plus className="w-4 h-4" />
@@ -679,18 +677,11 @@ export default function DashboardClient({
 
       {/* Mobile FAB */}
       <button
-        onClick={() => setShowAddEquipment(true)}
+        onClick={() => router.push('/dashboard/add-equipment')}
         className="sm:hidden fixed bottom-6 right-6 w-14 h-14 bg-emerald-500 hover:bg-emerald-600 text-black rounded-full shadow-lg shadow-emerald-500/25 flex items-center justify-center transition-colors z-30"
       >
         <Plus className="w-6 h-6" />
       </button>
-
-      {/* Modals */}
-      <AddEquipmentModal
-        isOpen={showAddEquipment}
-        onClose={() => setShowAddEquipment(false)}
-        categories={categories}
-      />
     </div>
   )
 }

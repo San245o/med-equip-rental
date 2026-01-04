@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -10,6 +10,23 @@ import { createClient } from '@/lib/supabase/client'
 type Role = 'buyer' | 'seller' | 'both'
 
 export default function SignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#030712] text-white flex items-center justify-center">
+          <div className="flex items-center gap-3 text-sm text-gray-400">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            Loading signup...
+          </div>
+        </div>
+      }
+    >
+      <SignupContent />
+    </Suspense>
+  )
+}
+
+function SignupContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const defaultRole = searchParams.get('role') as Role | null

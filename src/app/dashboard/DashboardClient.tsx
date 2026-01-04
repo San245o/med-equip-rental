@@ -30,7 +30,6 @@ import { Profile, Category, Equipment, Rental } from '@/types'
 import { formatCurrency, formatDate, getStatusColor, getConditionLabel } from '@/lib/utils'
 import EquipmentCard from '@/components/EquipmentCard'
 import RentalCard from '@/components/RentalCard'
-import AddEquipmentModal from '@/components/AddEquipmentModal'
 import dynamic from 'next/dynamic'
 
 // Dynamic import for map (client-side only)
@@ -71,7 +70,6 @@ export default function DashboardClient({
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [showAddEquipment, setShowAddEquipment] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
   const handleLogout = async () => {
@@ -225,7 +223,7 @@ export default function DashboardClient({
             <div className="flex items-center gap-3">
               {(activeTab === 'overview' || activeTab === 'my-equipment') && (
                 <button
-                  onClick={() => setShowAddEquipment(true)}
+                  onClick={() => router.push('/dashboard/add-equipment')}
                   className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg font-medium transition-colors"
                 >
                   <Plus className="w-4 h-4" />
@@ -440,7 +438,7 @@ export default function DashboardClient({
                     <h3 className="text-xl font-medium mb-2">No equipment listed</h3>
                     <p className="text-gray-500 mb-6">Start earning by listing your idle medical equipment</p>
                     <button
-                      onClick={() => setShowAddEquipment(true)}
+                      onClick={() => router.push('/dashboard/add-equipment')}
                       className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-lg font-medium transition-colors"
                     >
                       <Plus className="w-5 h-5 inline mr-2" />
@@ -586,12 +584,6 @@ export default function DashboardClient({
         </div>
       </main>
 
-      {/* Modals */}
-      <AddEquipmentModal
-        isOpen={showAddEquipment}
-        onClose={() => setShowAddEquipment(false)}
-        categories={categories}
-      />
     </div>
   )
 }
