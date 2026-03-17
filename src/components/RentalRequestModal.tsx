@@ -330,8 +330,8 @@ export default function RentalRequestModal({ isOpen, onClose, equipment }: Renta
 
                 {/* Submit - sticky footer */}
                 <div className="pointer-events-none">
-                  <div className="fixed inset-x-0 bottom-0 flex justify-center px-6 pb-6">
-                    <div className="w-full max-w-lg rounded-2xl border border-gray-800 bg-gray-900/90 backdrop-blur p-4 shadow-2xl pointer-events-auto">
+                  <div className="sticky bottom-0 pt-4">
+                    <div className="w-full rounded-2xl border border-gray-800 bg-gray-900/90 backdrop-blur p-4 shadow-2xl pointer-events-auto">
                       <div className="flex flex-col gap-1 text-xs text-gray-400 mb-3">
                         <span>Select start/end dates and pin the delivery location to enable the button.</span>
                         {(!formData.delivery_latitude || !formData.delivery_longitude) && (

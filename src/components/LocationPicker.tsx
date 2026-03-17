@@ -39,6 +39,16 @@ function RecenterMap({ lat, lng }: { lat: number; lng: number }) {
   useEffect(() => {
     map.setView([lat, lng], map.getZoom())
   }, [lat, lng, map])
+
+  useEffect(() => {
+    const invalidate = () => map.invalidateSize()
+    const timeout = setTimeout(invalidate, 150)
+    window.addEventListener('resize', invalidate)
+    return () => {
+      clearTimeout(timeout)
+      window.removeEventListener('resize', invalidate)
+    }
+  }, [map])
   
   return null
 }

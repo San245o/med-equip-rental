@@ -35,7 +35,7 @@ const categories = [
 const stats = [
   { value: '500+', label: 'Hospitals Connected' },
   { value: '12K+', label: 'Equipment Listed' },
-  { value: '$2.5M+', label: 'Saved in Costs' },
+  { value: '₹2.5Cr+', label: 'Saved in Costs' },
   { value: '98%', label: 'Satisfaction Rate' },
 ]
 
@@ -62,7 +62,7 @@ const steps = [
 
 const testimonials = [
   {
-    quote: "MedRent transformed how we manage equipment overflow. We've generated $50K in rental income from idle assets.",
+    quote: "MedRent transformed how we manage equipment overflow. We've generated ₹42L in rental income from idle assets.",
     author: 'Dr. Sarah Chen',
     role: 'Chief Medical Officer',
     hospital: 'Metro General Hospital',

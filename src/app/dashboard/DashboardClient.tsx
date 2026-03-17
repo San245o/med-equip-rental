@@ -71,6 +71,7 @@ export default function DashboardClient({
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [marketplaceFilter, setMarketplaceFilter] = useState<'all' | 'rent' | 'sell'>('all')
 
   const handleLogout = async () => {
     const supabase = createClient()
@@ -79,14 +80,23 @@ export default function DashboardClient({
     router.refresh()
   }
 
-  const filteredEquipment = availableEquipment.filter(eq => 
-    eq.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    eq.category?.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredEquipment = availableEquipment.filter(eq => {
+    const matchesSearch =
+      eq.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      eq.category?.name.toLowerCase().includes(searchQuery.toLowerCase())
+
+    const listingType = eq.listing_type || 'rent'
+    const matchesListing =
+      marketplaceFilter === 'all' ||
+      (marketplaceFilter === 'rent' && (listingType === 'rent' || listingType === 'both')) ||
+      (marketplaceFilter === 'sell' && (listingType === 'sell' || listingType === 'both'))
+
+    return matchesSearch && matchesListing
+  })
 
   const navItems = [
     { id: 'overview' as Tab, icon: LayoutDashboard, label: 'Overview' },
-    { id: 'browse' as Tab, icon: Search, label: 'Browse Equipment' },
+    { id: 'browse' as Tab, icon: Search, label: 'Marketplace' },
     { id: 'my-equipment' as Tab, icon: Package, label: 'My Equipment', badge: myEquipment.length },
     { id: 'rentals' as Tab, icon: ShoppingCart, label: 'My Rentals', badge: myRentals.filter(r => r.status === 'active').length },
     { id: 'requests' as Tab, icon: Bell, label: 'Requests', badge: incomingRequests.filter(r => r.status === 'pending').length },
@@ -391,6 +401,29 @@ export default function DashboardClient({
                       <option key={cat.id} value={cat.id}>{cat.name}</option>
                     ))}
                   </select>
+                  <div className="flex rounded-lg border border-[#262626] overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setMarketplaceFilter('all')}
+                      className={`px-3 py-3 text-sm ${marketplaceFilter === 'all' ? 'bg-emerald-500/15 text-emerald-300' : 'text-gray-400 hover:text-white'}`}
+                    >
+                      All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMarketplaceFilter('rent')}
+                      className={`px-3 py-3 text-sm border-x border-[#262626] ${marketplaceFilter === 'rent' ? 'bg-emerald-500/15 text-emerald-300' : 'text-gray-400 hover:text-white'}`}
+                    >
+                      Rent
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMarketplaceFilter('sell')}
+                      className={`px-3 py-3 text-sm ${marketplaceFilter === 'sell' ? 'bg-cyan-500/15 text-cyan-300' : 'text-gray-400 hover:text-white'}`}
+                    >
+                      Buy
+                    </button>
+                  </div>
                 </div>
 
                 {/* Equipment grid */}

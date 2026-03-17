@@ -6,7 +6,6 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { Equipment, Rental } from '@/types'
 import { formatCurrency } from '@/lib/utils'
-import { Package, MapPin } from 'lucide-react'
 
 // Custom marker icons
 const createCustomIcon = (color: string) => {
@@ -47,9 +46,21 @@ interface RentalMapProps {
 
 function MapController({ center }: { center: [number, number] }) {
   const map = useMap()
+
   useEffect(() => {
     map.setView(center, 10)
   }, [map, center])
+
+  useEffect(() => {
+    const invalidate = () => map.invalidateSize()
+    const timeout = setTimeout(invalidate, 150)
+    window.addEventListener('resize', invalidate)
+    return () => {
+      clearTimeout(timeout)
+      window.removeEventListener('resize', invalidate)
+    }
+  }, [map])
+
   return null
 }
 
@@ -103,7 +114,11 @@ export default function RentalMap({ rentals, equipment, fullScreen }: RentalMapP
                 <h3 className="font-semibold text-white mb-1">{eq.name}</h3>
                 {eq.brand && <p className="text-sm text-gray-400 mb-2">{eq.brand}</p>}
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-lg font-bold text-white">{formatCurrency(eq.daily_rate)}/day</span>
+                  <span className="text-sm font-bold text-white">
+                    {eq.listing_type === 'sell'
+                      ? `Buy ${formatCurrency(eq.sale_price || 0)}`
+                      : `${formatCurrency(eq.daily_rate)}/day`}
+                  </span>
                   <span className={`px-2 py-0.5 text-xs rounded-full ${
                     eq.available ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
                   }`}>
@@ -112,10 +127,10 @@ export default function RentalMap({ rentals, equipment, fullScreen }: RentalMapP
                 </div>
                 {eq.available && (
                   <a 
-                    href={`/rent/${eq.id}`}
+                    href={eq.listing_type === 'sell' ? `/rent/${eq.id}?mode=buy` : `/rent/${eq.id}`}
                     className="block w-full py-2 px-3 text-center text-sm font-medium rounded-lg bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:opacity-90 transition-opacity"
                   >
-                    Request Rental
+                    {eq.listing_type === 'both' ? 'Buy or Rent' : eq.listing_type === 'sell' ? 'Buy Now' : 'Request Rental'}
                   </a>
                 )}
               </div>

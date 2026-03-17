@@ -12,26 +12,11 @@ interface EquipmentCardProps {
 }
 
 export default function EquipmentCard({ equipment, onClick, isOwner }: EquipmentCardProps) {
-  const CardWrapper = ({ children }: { children: React.ReactNode }) => {
-    if (isOwner || !equipment.available) {
-      return (
-        <div className="group bg-[#141414] rounded-xl border border-[#262626] overflow-hidden transition-all hover:border-[#333]">
-          {children}
-        </div>
-      )
-    }
-    return (
-      <Link 
-        href={`/rent/${equipment.id}`}
-        className="group block bg-[#141414] rounded-xl border border-[#262626] overflow-hidden transition-all hover:border-[#333] card-hover"
-      >
-        {children}
-      </Link>
-    )
-  }
+  const listingType = equipment.listing_type || 'rent'
+  const detailHref = listingType === 'sell' ? `/rent/${equipment.id}?mode=buy` : `/rent/${equipment.id}`
 
-  return (
-    <CardWrapper>
+  const cardContent = (
+    <>
       {/* Image */}
       <div className="relative h-40 bg-[#0a0a0a]">
         {equipment.images && equipment.images.length > 0 ? (
@@ -53,6 +38,9 @@ export default function EquipmentCard({ equipment, onClick, isOwner }: Equipment
             : 'bg-red-500/10 text-red-400 border border-red-500/20'
         }`}>
           {equipment.available ? 'Available' : 'Rented'}
+        </div>
+        <div className="absolute top-3 left-3 font-mono text-[10px] px-2 py-0.5 rounded-md border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 uppercase tracking-wider">
+          {listingType === 'both' ? 'Rent + Sell' : listingType === 'sell' ? 'For Sale' : 'For Rent'}
         </div>
       </div>
 
@@ -97,9 +85,18 @@ export default function EquipmentCard({ equipment, onClick, isOwner }: Equipment
         </div>
 
         {/* Price */}
-        <div className="flex items-baseline gap-1 mb-4">
-          <span className="text-lg font-mono font-semibold">{formatCurrency(equipment.daily_rate)}</span>
-          <span className="text-xs text-[#525252]">/day</span>
+        <div className="mb-4 space-y-1">
+          {listingType !== 'sell' && (
+            <div className="flex items-baseline gap-1">
+              <span className="text-lg font-mono font-semibold">{formatCurrency(equipment.daily_rate)}</span>
+              <span className="text-xs text-[#525252]">/day</span>
+            </div>
+          )}
+          {listingType !== 'rent' && equipment.sale_price && (
+            <div className="flex items-baseline gap-1">
+              <span className="text-sm font-mono text-cyan-300">Buy: {formatCurrency(equipment.sale_price)}</span>
+            </div>
+          )}
         </div>
 
         {/* Actions */}
@@ -115,7 +112,7 @@ export default function EquipmentCard({ equipment, onClick, isOwner }: Equipment
           </div>
         ) : equipment.available ? (
           <div className="w-full py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-black font-medium text-sm text-center transition-colors flex items-center justify-center gap-2">
-            Request Rental
+            {listingType === 'both' ? 'Buy or Rent' : listingType === 'sell' ? 'Buy Now' : 'Request Rental'}
             <ExternalLink className="w-3.5 h-3.5" />
           </div>
         ) : (
@@ -124,6 +121,23 @@ export default function EquipmentCard({ equipment, onClick, isOwner }: Equipment
           </div>
         )}
       </div>
-    </CardWrapper>
+    </>
+  )
+
+  if (isOwner || !equipment.available) {
+    return (
+      <div className="group bg-[#141414] rounded-xl border border-[#262626] overflow-hidden transition-all hover:border-[#333]">
+        {cardContent}
+      </div>
+    )
+  }
+
+  return (
+    <Link
+      href={detailHref}
+      className="group block bg-[#141414] rounded-xl border border-[#262626] overflow-hidden transition-all hover:border-[#333] card-hover"
+    >
+      {cardContent}
+    </Link>
   )
 }

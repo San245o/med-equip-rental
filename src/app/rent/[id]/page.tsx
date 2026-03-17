@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, Calendar, MapPin, Loader2, Package, CheckCircle, AlertCircle, Building2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { formatCurrency, getDaysBetween, calculateRentalCost, getConditionLabel } from '@/lib/utils'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 
@@ -23,6 +23,7 @@ interface EquipmentWithSeller {
   id: number
   seller_id: string
   category_id?: number
+  listing_type: 'rent' | 'sell' | 'both'
   name: string
   description?: string
   brand?: string
@@ -32,6 +33,7 @@ interface EquipmentWithSeller {
   daily_rate: number
   weekly_rate?: number
   monthly_rate?: number
+  sale_price?: number
   images: string[]
   specifications: Record<string, string>
   latitude?: number
@@ -56,12 +58,17 @@ interface EquipmentWithSeller {
 export default function RentEquipmentPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [equipment, setEquipment] = useState<EquipmentWithSeller | null>(null)
   const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null)
+  const [transactionMode, setTransactionMode] = useState<'rent' | 'buy'>(
+    searchParams.get('mode') === 'buy' ? 'buy' : 'rent'
+  )
+  const [purchaseOffer, setPurchaseOffer] = useState('')
   
   const [formData, setFormData] = useState({
     start_date: '',
@@ -108,6 +115,17 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
     fetchData()
   }, [resolvedParams.id, router])
 
+  useEffect(() => {
+    if (!equipment) return
+    if (equipment.listing_type === 'sell') {
+      setTransactionMode('buy')
+      return
+    }
+    if (equipment.listing_type === 'rent') {
+      setTransactionMode('rent')
+    }
+  }, [equipment])
+
   const handleLocationChange = (lat: number, lng: number) => {
     setFormData(prev => ({
       ...prev,
@@ -129,6 +147,8 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
       )
     : 0
 
+  const isBuying = transactionMode === 'buy'
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!equipment || !currentUser) return
@@ -144,16 +164,25 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
         return
       }
 
-      if (!formData.delivery_latitude || !formData.delivery_longitude) {
+      if (!isBuying && (!formData.delivery_latitude || !formData.delivery_longitude)) {
         setError('Please pin your delivery location on the map')
         setSubmitting(false)
         return
       }
 
-      if (days <= 0) {
+      if (!isBuying && days <= 0) {
         setError('Please select valid rental dates')
         setSubmitting(false)
         return
+      }
+
+      if (isBuying) {
+        const offeredAmount = parseFloat(purchaseOffer || '0')
+        if (offeredAmount <= 0) {
+          setError('Please enter a valid offer amount')
+          setSubmitting(false)
+          return
+        }
       }
 
       const supabase = createClient()
@@ -184,33 +213,53 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
         }
       }
 
-      // Insert rental request
-      const { data: rentalData, error: insertError } = await supabase
-        .from('rentals')
-        .insert({
-          equipment_id: Number(equipment.id),
-          buyer_id: currentUser.id,
-          seller_id: equipment.seller_id,
-          start_date: formData.start_date,
-          end_date: formData.end_date,
-          total_amount: totalCost,
-          delivery_address: formData.delivery_address || null,
-          delivery_latitude: formData.delivery_latitude,
-          delivery_longitude: formData.delivery_longitude,
-          notes: formData.notes || null,
-          status: 'pending',
-        })
-        .select()
-        .single()
+      if (isBuying) {
+        const { error: purchaseError } = await supabase
+          .from('purchase_requests')
+          .insert({
+            equipment_id: Number(equipment.id),
+            buyer_id: currentUser.id,
+            seller_id: equipment.seller_id,
+            offered_amount: parseFloat(purchaseOffer),
+            message: formData.notes || null,
+            status: 'pending',
+          })
 
-      if (insertError) {
-        console.error('Rental insert error:', insertError)
-        setError('Failed to submit request: ' + insertError.message)
-        setSubmitting(false)
-        return
+        if (purchaseError) {
+          console.error('Purchase insert error:', purchaseError)
+          setError('Failed to submit purchase request: ' + purchaseError.message)
+          setSubmitting(false)
+          return
+        }
+      } else {
+        const { data: rentalData, error: insertError } = await supabase
+          .from('rentals')
+          .insert({
+            equipment_id: Number(equipment.id),
+            buyer_id: currentUser.id,
+            seller_id: equipment.seller_id,
+            start_date: formData.start_date,
+            end_date: formData.end_date,
+            total_amount: totalCost,
+            delivery_address: formData.delivery_address || null,
+            delivery_latitude: formData.delivery_latitude,
+            delivery_longitude: formData.delivery_longitude,
+            notes: formData.notes || null,
+            status: 'pending',
+          })
+          .select()
+          .single()
+
+        if (insertError) {
+          console.error('Rental insert error:', insertError)
+          setError('Failed to submit request: ' + insertError.message)
+          setSubmitting(false)
+          return
+        }
+
+        console.log('Rental created successfully:', rentalData)
       }
 
-      console.log('Rental created successfully:', rentalData)
       setSuccess(true)
       
       // Redirect after success
@@ -260,7 +309,7 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
           <CheckCircle className="w-8 h-8 text-emerald-500" />
         </motion.div>
         <h1 className="text-xl font-semibold">Request Submitted</h1>
-        <p className="text-sm text-[#737373]">The seller will review your request shortly.</p>
+        <p className="text-sm text-[#737373]">The seller will review your {isBuying ? 'purchase' : 'rental'} request shortly.</p>
         <p className="text-xs text-[#525252]">Redirecting to dashboard...</p>
       </div>
     )
@@ -285,7 +334,7 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
         <div className="grid lg:grid-cols-5 gap-6">
           {/* Equipment Info - Sidebar */}
           <div className="lg:col-span-2">
-            <div className="sticky top-20 bg-[#141414] rounded-xl border border-[#262626] overflow-hidden">
+            <div className="bg-[#141414] rounded-xl border border-[#262626] overflow-hidden">
               {/* Equipment Image */}
               {equipment.images && equipment.images.length > 0 ? (
                 <img 
@@ -339,26 +388,34 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
 
                 {/* Pricing */}
                 <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                  <div className="p-2 bg-[#0a0a0a] rounded-lg border border-[#1c1c1c]">
-                    <div className="text-lg font-mono font-semibold text-emerald-400">{formatCurrency(equipment.daily_rate)}</div>
-                    <div className="text-xs text-[#525252]">/day</div>
-                  </div>
-                  {equipment.weekly_rate && (
+                  {equipment.listing_type !== 'sell' && (
+                    <div className="p-2 bg-[#0a0a0a] rounded-lg border border-[#1c1c1c]">
+                      <div className="text-lg font-mono font-semibold text-emerald-400">{formatCurrency(equipment.daily_rate)}</div>
+                      <div className="text-xs text-[#525252]">/day</div>
+                    </div>
+                  )}
+                  {equipment.listing_type !== 'sell' && equipment.weekly_rate && (
                     <div className="p-2 bg-[#0a0a0a] rounded-lg border border-[#1c1c1c]">
                       <div className="text-lg font-mono font-semibold">{formatCurrency(equipment.weekly_rate)}</div>
                       <div className="text-xs text-[#525252]">/week</div>
                     </div>
                   )}
-                  {equipment.monthly_rate && (
+                  {equipment.listing_type !== 'sell' && equipment.monthly_rate && (
                     <div className="p-2 bg-[#0a0a0a] rounded-lg border border-[#1c1c1c]">
                       <div className="text-lg font-mono font-semibold">{formatCurrency(equipment.monthly_rate)}</div>
                       <div className="text-xs text-[#525252]">/month</div>
                     </div>
                   )}
+                  {equipment.listing_type !== 'rent' && (
+                    <div className="p-2 bg-[#0a0a0a] rounded-lg border border-cyan-500/30 col-span-3">
+                      <div className="text-lg font-mono font-semibold text-cyan-300">Buy: {formatCurrency(equipment.sale_price || 0)}</div>
+                      <div className="text-xs text-[#525252]">one-time</div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Cost Summary */}
-                {days > 0 && (
+                {!isBuying && days > 0 && (
                   <div className="mt-4 p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
                     <div className="flex items-center justify-between mb-2 text-sm">
                       <span className="text-[#737373]">Duration</span>
@@ -377,6 +434,33 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
           {/* Form */}
           <div className="lg:col-span-3">
             <form onSubmit={handleSubmit} className="space-y-4">
+              {equipment.listing_type === 'both' && (
+                <div className="bg-[#141414] rounded-lg border border-[#262626] p-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTransactionMode('rent')}
+                    className={`flex-1 py-2 rounded-lg text-sm border transition-colors ${
+                      transactionMode === 'rent'
+                        ? 'border-emerald-500 bg-emerald-500/15 text-emerald-300'
+                        : 'border-[#262626] text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Rent
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTransactionMode('buy')}
+                    className={`flex-1 py-2 rounded-lg text-sm border transition-colors ${
+                      transactionMode === 'buy'
+                        ? 'border-cyan-500 bg-cyan-500/15 text-cyan-300'
+                        : 'border-[#262626] text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Buy
+                  </button>
+                </div>
+              )}
+
               {error && (
                 <motion.div 
                   initial={{ opacity: 0, y: -10 }}
@@ -389,6 +473,7 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
               )}
 
               {/* Rental Period */}
+              {!isBuying && (
               <div className="bg-[#141414] rounded-lg border border-[#262626] p-6">
                 <h3 className="text-sm font-medium text-gray-300 mb-4 flex items-center gap-2 uppercase tracking-wide">
                   <Calendar className="w-4 h-4 text-emerald-500" />
@@ -419,8 +504,10 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Delivery Location */}
+              {!isBuying && (
               <div className="bg-[#141414] rounded-lg border border-[#262626] p-6">
                 <h3 className="text-sm font-medium text-gray-300 mb-4 flex items-center gap-2 uppercase tracking-wide">
                   <MapPin className="w-4 h-4 text-emerald-500" />
@@ -457,6 +544,27 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
                   />
                 </div>
               </div>
+              )}
+
+              {isBuying && (
+                <div className="bg-[#141414] rounded-lg border border-[#262626] p-6">
+                  <h3 className="text-sm font-medium text-gray-300 mb-4 uppercase tracking-wide">Purchase Offer</h3>
+                  <label className="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Offer Amount (INR) *</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">₹</span>
+                    <input
+                      type="number"
+                      value={purchaseOffer}
+                      onChange={(e) => setPurchaseOffer(e.target.value)}
+                      placeholder={(equipment.sale_price || 0).toString()}
+                      min="0"
+                      step="0.01"
+                      required
+                      className="w-full pl-8 pr-4 py-3 rounded-lg bg-[#0a0a0a] border border-[#262626] focus:border-cyan-500 outline-none transition-colors font-mono text-sm"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Additional Notes */}
               <div className="bg-[#141414] rounded-lg border border-[#262626] p-6">
@@ -480,7 +588,7 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
                 </Link>
                 <button
                   type="submit"
-                  disabled={submitting || days === 0 || !formData.delivery_latitude}
+                  disabled={submitting || (!isBuying && (days === 0 || !formData.delivery_latitude)) || (isBuying && !purchaseOffer)}
                   className="flex-1 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
                 >
                   {submitting ? (
@@ -489,7 +597,7 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
                       Submitting...
                     </>
                   ) : (
-                    'Submit Rental Request'
+                    isBuying ? 'Submit Purchase Offer' : 'Submit Rental Request'
                   )}
                 </button>
               </div>

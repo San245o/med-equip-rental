@@ -37,6 +37,7 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
   const [isDragging, setIsDragging] = useState(false)
   
   const [formData, setFormData] = useState({
+    listing_type: 'rent',
     name: '',
     description: '',
     category_id: '',
@@ -46,6 +47,7 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
     daily_rate: '',
     weekly_rate: '',
     monthly_rate: '',
+    sale_price: '',
     latitude: null as number | null,
     longitude: null as number | null,
   })
@@ -172,15 +174,17 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
       // Create equipment entry
       const equipmentData = {
         seller_id: user.id,
+        listing_type: formData.listing_type,
         name: formData.name,
         description: formData.description || null,
         category_id: formData.category_id ? parseInt(formData.category_id) : null,
         brand: formData.brand || null,
         year_manufactured: formData.year_manufactured ? parseInt(formData.year_manufactured) : null,
         condition: formData.condition,
-        daily_rate: parseFloat(formData.daily_rate),
-        weekly_rate: formData.weekly_rate ? parseFloat(formData.weekly_rate) : null,
-        monthly_rate: formData.monthly_rate ? parseFloat(formData.monthly_rate) : null,
+        daily_rate: formData.listing_type === 'sell' ? 0 : parseFloat(formData.daily_rate || '0'),
+        weekly_rate: formData.listing_type === 'sell' ? null : (formData.weekly_rate ? parseFloat(formData.weekly_rate) : null),
+        monthly_rate: formData.listing_type === 'sell' ? null : (formData.monthly_rate ? parseFloat(formData.monthly_rate) : null),
+        sale_price: formData.listing_type === 'rent' ? null : (formData.sale_price ? parseFloat(formData.sale_price) : null),
         latitude: formData.latitude,
         longitude: formData.longitude,
         available: true,
@@ -231,6 +235,7 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
 
   const resetForm = () => {
     setFormData({
+      listing_type: 'rent',
       name: '',
       description: '',
       category_id: '',
@@ -240,6 +245,7 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
       daily_rate: '',
       weekly_rate: '',
       monthly_rate: '',
+      sale_price: '',
       latitude: null,
       longitude: null,
     })
@@ -346,6 +352,30 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
             </div>
 
             <div className="grid md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-2">Listing Type *</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: 'rent', label: 'For Rent' },
+                    { value: 'sell', label: 'For Sale' },
+                    { value: 'both', label: 'Rent + Sale' },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, listing_type: option.value })}
+                      className={`py-2.5 rounded-xl border text-sm transition-colors ${
+                        formData.listing_type === option.value
+                          ? 'border-teal-500 bg-teal-500/15 text-teal-300'
+                          : 'border-gray-700 text-gray-300 hover:border-gray-500'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Name */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-2">Equipment Name *</label>
@@ -453,48 +483,68 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
                   <div>
                     <label className="block text-xs text-gray-400 mb-1">Daily Rate *</label>
                     <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">₹</span>
                       <input
                         type="number"
                         value={formData.daily_rate}
                         onChange={(e) => setFormData({ ...formData, daily_rate: e.target.value })}
                         placeholder="0"
-                        required
+                        required={formData.listing_type !== 'sell'}
+                        disabled={formData.listing_type === 'sell'}
                         min="0"
                         step="0.01"
-                        className="w-full pl-8 pr-4 py-3 rounded-xl bg-gray-800 border border-gray-700 focus:border-teal-500 outline-none"
+                        className="w-full pl-8 pr-4 py-3 rounded-xl bg-gray-800 border border-gray-700 focus:border-teal-500 outline-none disabled:opacity-60"
                       />
                     </div>
                   </div>
                   <div>
                     <label className="block text-xs text-gray-400 mb-1">Weekly Rate</label>
                     <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">₹</span>
                       <input
                         type="number"
                         value={formData.weekly_rate}
                         onChange={(e) => setFormData({ ...formData, weekly_rate: e.target.value })}
                         placeholder="0"
+                        disabled={formData.listing_type === 'sell'}
                         min="0"
                         step="0.01"
-                        className="w-full pl-8 pr-4 py-3 rounded-xl bg-gray-800 border border-gray-700 focus:border-teal-500 outline-none"
+                        className="w-full pl-8 pr-4 py-3 rounded-xl bg-gray-800 border border-gray-700 focus:border-teal-500 outline-none disabled:opacity-60"
                       />
                     </div>
                   </div>
                   <div>
                     <label className="block text-xs text-gray-400 mb-1">Monthly Rate</label>
                     <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">₹</span>
                       <input
                         type="number"
                         value={formData.monthly_rate}
                         onChange={(e) => setFormData({ ...formData, monthly_rate: e.target.value })}
                         placeholder="0"
+                        disabled={formData.listing_type === 'sell'}
                         min="0"
                         step="0.01"
-                        className="w-full pl-8 pr-4 py-3 rounded-xl bg-gray-800 border border-gray-700 focus:border-teal-500 outline-none"
+                        className="w-full pl-8 pr-4 py-3 rounded-xl bg-gray-800 border border-gray-700 focus:border-teal-500 outline-none disabled:opacity-60"
                       />
                     </div>
+                  </div>
+                </div>
+                <div className="mt-3 max-w-xs">
+                  <label className="block text-xs text-gray-400 mb-1">Sale Price {formData.listing_type === 'rent' ? '(optional)' : '*'}</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">₹</span>
+                    <input
+                      type="number"
+                      value={formData.sale_price}
+                      onChange={(e) => setFormData({ ...formData, sale_price: e.target.value })}
+                      placeholder="0"
+                      required={formData.listing_type !== 'rent'}
+                      disabled={formData.listing_type === 'rent'}
+                      min="0"
+                      step="0.01"
+                      className="w-full pl-8 pr-4 py-3 rounded-xl bg-gray-800 border border-gray-700 focus:border-teal-500 outline-none disabled:opacity-60"
+                    />
                   </div>
                 </div>
               </div>
@@ -502,8 +552,8 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
 
             {/* Submit - sticky footer */}
             <div className="pointer-events-none">
-              <div className="fixed inset-x-0 bottom-0 flex justify-center px-6 pb-6">
-                <div className="w-full max-w-2xl rounded-2xl border border-gray-800 bg-gray-900/90 backdrop-blur p-4 shadow-2xl pointer-events-auto">
+              <div className="sticky bottom-0 pt-4">
+                <div className="w-full rounded-2xl border border-gray-800 bg-gray-900/90 backdrop-blur p-4 shadow-2xl pointer-events-auto">
                   <div className="flex flex-col gap-2 text-xs text-gray-400 mb-3">
                     <span>Tip: Pin the equipment location on the map to enable the button.</span>
                     {!formData.latitude || !formData.longitude ? (

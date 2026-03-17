@@ -29,6 +29,7 @@ export interface Equipment {
   id: number;
   seller_id: string;
   category_id?: number;
+  listing_type: 'rent' | 'sell' | 'both';
   name: string;
   description?: string;
   brand?: string;
@@ -38,6 +39,7 @@ export interface Equipment {
   daily_rate: number;
   weekly_rate?: number;
   monthly_rate?: number;
+  sale_price?: number;
   images: string[];
   specifications: Record<string, string>;
   latitude?: number;
@@ -114,6 +116,7 @@ export interface Notification {
 
 // Form types
 export interface EquipmentFormData {
+  listing_type: Equipment['listing_type'];
   name: string;
   description: string;
   category_id: number;
@@ -124,10 +127,26 @@ export interface EquipmentFormData {
   daily_rate: number;
   weekly_rate?: number;
   monthly_rate?: number;
+  sale_price?: number;
   city: string;
   latitude?: number;
   longitude?: number;
   specifications: Record<string, string>;
+}
+
+export interface PurchaseRequest {
+  id: number;
+  equipment_id: number;
+  buyer_id: string;
+  seller_id: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'completed';
+  offered_amount: number;
+  message?: string;
+  created_at: string;
+  updated_at: string;
+  equipment?: Equipment;
+  buyer?: Profile;
+  seller?: Profile;
 }
 
 export interface RentalFormData {
