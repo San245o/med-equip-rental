@@ -316,7 +316,7 @@ export default function DashboardClient({
                   <h1 className="text-xl font-semibold">
                     Welcome back, <span className="text-emerald-400">{profile?.full_name?.split(' ')[0] || 'User'}</span>
                   </h1>
-                  <p className="text-sm text-[#737373] mt-1">Here's what's happening with your rentals.</p>
+                  <p className="text-sm text-[#737373] mt-1">Here&apos;s what&apos;s happening with your rentals.</p>
                 </div>
 
                 {/* Stats Grid */}
@@ -520,7 +520,7 @@ export default function DashboardClient({
               >
                 <div>
                   <h1 className="text-xl font-semibold">My Rentals</h1>
-                  <p className="text-sm text-[#737373] mt-1">Equipment you're renting from others</p>
+                  <p className="text-sm text-[#737373] mt-1">Equipment you&apos;re renting from others</p>
                 </div>
 
                 {myRentals.length > 0 ? (
