@@ -44,7 +44,7 @@ export default function RentalCard({ rental, viewType }: RentalCardProps) {
   }
 
   return (
-    <div className="bg-[#141414] rounded-xl border border-[#262626] overflow-hidden hover:border-[#333] transition-colors">
+    <div className="bg-[#141414] rounded-xl border border-[#262626] overflow-hidden hover:border-[#333] transition-all duration-200">
       {/* Header with status */}
       <div className="px-4 py-3 border-b border-[#262626] flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -83,9 +83,29 @@ export default function RentalCard({ rental, viewType }: RentalCardProps) {
 
         {/* Amount */}
         <div className="pt-2 border-t border-[#262626]">
-          <div className="flex items-baseline gap-2">
-            <span className="text-lg font-mono font-semibold">{formatCurrency(rental.total_amount)}</span>
-            <span className="text-xs text-[#525252]">total</span>
+          <div className="space-y-1">
+            <div className="flex items-baseline justify-between">
+              <span className="text-xs text-[#737373]">Rental Cost</span>
+              <span className="text-sm font-mono">{formatCurrency(rental.total_amount)}</span>
+            </div>
+            {rental.deposit_amount && rental.deposit_amount > 0 && (
+              <>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xs text-[#737373]">Deposit</span>
+                  <span className="text-sm font-mono">{formatCurrency(rental.deposit_amount)}</span>
+                </div>
+                <div className="flex items-baseline justify-between pt-1 border-t border-[#1c1c1c]">
+                  <span className="text-xs text-[#a1a1a1]">Total</span>
+                  <span className="text-lg font-mono font-semibold text-emerald-400">{formatCurrency(rental.total_amount + rental.deposit_amount)}</span>
+                </div>
+              </>
+            )}
+            {!rental.deposit_amount && (
+              <div className="flex items-baseline gap-2">
+                <span className="text-lg font-mono font-semibold">{formatCurrency(rental.total_amount)}</span>
+                <span className="text-xs text-[#525252]">total</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -104,7 +124,7 @@ export default function RentalCard({ rental, viewType }: RentalCardProps) {
             <button
               onClick={() => handleStatusUpdate('approved')}
               disabled={loading !== null}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-black text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-black text-sm font-medium rounded-lg transition-all duration-200 disabled:opacity-50 transform hover:scale-[1.02] active:scale-[0.98]"
             >
               {loading === 'approved' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
               Approve
@@ -112,7 +132,7 @@ export default function RentalCard({ rental, viewType }: RentalCardProps) {
             <button
               onClick={() => handleStatusUpdate('rejected')}
               disabled={loading !== null}
-              className="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm rounded-lg transition-colors disabled:opacity-50"
+              className="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm rounded-lg transition-all duration-200 disabled:opacity-50"
             >
               {loading === 'rejected' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
             </button>
@@ -123,7 +143,7 @@ export default function RentalCard({ rental, viewType }: RentalCardProps) {
           <button
             onClick={() => handleStatusUpdate('active')}
             disabled={loading !== null}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-sm rounded-lg border border-blue-500/20 transition-colors disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-sm rounded-lg border border-blue-500/20 transition-all duration-200 disabled:opacity-50"
           >
             {loading === 'active' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowRight className="w-3.5 h-3.5" />}
             Mark Delivered
@@ -134,7 +154,7 @@ export default function RentalCard({ rental, viewType }: RentalCardProps) {
           <button
             onClick={() => handleStatusUpdate('completed')}
             disabled={loading !== null}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-sm rounded-lg border border-emerald-500/20 transition-colors disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-sm rounded-lg border border-emerald-500/20 transition-all duration-200 disabled:opacity-50"
           >
             {loading === 'completed' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
             Complete
@@ -145,7 +165,7 @@ export default function RentalCard({ rental, viewType }: RentalCardProps) {
           <button
             onClick={() => handleStatusUpdate('cancelled')}
             disabled={loading !== null}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#1c1c1c] hover:bg-[#262626] text-[#a1a1a1] text-sm rounded-lg transition-colors disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#1c1c1c] hover:bg-[#262626] text-[#a1a1a1] text-sm rounded-lg transition-all duration-200 disabled:opacity-50"
           >
             {loading === 'cancelled' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
             Cancel

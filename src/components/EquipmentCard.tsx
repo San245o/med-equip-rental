@@ -102,16 +102,16 @@ export default function EquipmentCard({ equipment, onClick, isOwner }: Equipment
         {/* Actions */}
         {isOwner ? (
           <div className="flex gap-2">
-            <button className="flex-1 py-2 rounded-lg bg-[#1c1c1c] text-[#a1a1a1] hover:bg-[#262626] hover:text-white text-sm transition-colors flex items-center justify-center gap-2">
+            <button className="flex-1 py-2 rounded-lg bg-[#1c1c1c] text-[#a1a1a1] hover:bg-[#262626] hover:text-white text-sm transition-all duration-200 flex items-center justify-center gap-2">
               <Edit className="w-3.5 h-3.5" />
               Edit
             </button>
-            <button className="py-2 px-3 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">
+            <button className="py-2 px-3 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all duration-200">
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           </div>
         ) : equipment.available ? (
-          <div className="w-full py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-black font-medium text-sm text-center transition-colors flex items-center justify-center gap-2">
+          <div className="w-full py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-black font-medium text-sm text-center transition-all duration-200 flex items-center justify-center gap-2 transform hover:scale-[1.02] active:scale-[0.98]">
             {listingType === 'both' ? 'Buy or Rent' : listingType === 'sell' ? 'Buy Now' : 'Request Rental'}
             <ExternalLink className="w-3.5 h-3.5" />
           </div>
@@ -126,7 +126,7 @@ export default function EquipmentCard({ equipment, onClick, isOwner }: Equipment
 
   if (isOwner || !equipment.available) {
     return (
-      <div className="group bg-[#141414] rounded-xl border border-[#262626] overflow-hidden transition-all hover:border-[#333]">
+      <div className="group bg-[#141414] rounded-xl border border-[#262626] overflow-hidden transition-all duration-200 hover:border-[#333]">
         {cardContent}
       </div>
     )
@@ -135,7 +135,7 @@ export default function EquipmentCard({ equipment, onClick, isOwner }: Equipment
   return (
     <Link
       href={detailHref}
-      className="group block bg-[#141414] rounded-xl border border-[#262626] overflow-hidden transition-all hover:border-[#333] card-hover"
+      className="group block bg-[#141414] rounded-xl border border-[#262626] overflow-hidden transition-all duration-200 hover:border-[#333] card-hover"
     >
       {cardContent}
     </Link>
