@@ -20,6 +20,7 @@ const markerIcon = new Icon({
   `),
   iconSize: [32, 32],
   iconAnchor: [16, 32],
+  popupAnchor: [0, -32],
 })
 
 // Component to handle map click events
@@ -99,7 +100,7 @@ export default function LocationPicker({ onLocationChange, initialLat, initialLn
         type="button"
         onClick={getCurrentLocation}
         disabled={gettingLocation}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-500/20 border border-teal-500/30 text-teal-400 hover:bg-teal-500/30 transition-colors disabled:opacity-50"
+        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-500/20 border border-teal-500/30 text-teal-400 hover:bg-teal-500/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {gettingLocation ? (
           <Loader2 className="w-4 h-4 animate-spin" />
@@ -110,20 +111,21 @@ export default function LocationPicker({ onLocationChange, initialLat, initialLn
       </button>
 
       {/* Map */}
-      <div className="relative w-full h-48 rounded-xl overflow-hidden border border-gray-700">
+      <div className="relative w-full h-64 rounded-xl overflow-hidden border border-gray-700">
         <MapContainer
           center={[mapCenter.lat, mapCenter.lng]}
           zoom={position ? 15 : 5}
           className="w-full h-full"
           style={{ background: '#1f2937' }}
+          scrollWheelZoom={true}
         >
           <TileLayer
             attribution='&copy; <a href="https://carto.com/">CARTO</a>'
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           />
-          
+
           <MapClickHandler onLocationSelect={handleLocationSelect} />
-          
+
           {position && (
             <>
               <Marker position={[position.lat, position.lng]} icon={markerIcon} />
@@ -134,8 +136,8 @@ export default function LocationPicker({ onLocationChange, initialLat, initialLn
 
         {/* Instruction overlay */}
         {!position && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
-            <p className="text-sm text-white bg-black/50 px-3 py-1.5 rounded-lg">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none z-[400]">
+            <p className="text-sm text-white bg-black/70 px-4 py-2 rounded-lg">
               Click on the map to set location
             </p>
           </div>

@@ -40,6 +40,7 @@ export interface Equipment {
   weekly_rate?: number;
   monthly_rate?: number;
   sale_price?: number;
+  deposit_amount?: number;
   images: string[];
   specifications: Record<string, string>;
   latitude?: number;
@@ -64,6 +65,7 @@ export interface Rental {
   start_date: string;
   end_date: string;
   total_amount: number;
+  deposit_amount?: number;
   delivery_address?: string;
   delivery_latitude?: number;
   delivery_longitude?: number;

@@ -4,7 +4,7 @@ import { useState, useEffect, use } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Calendar, MapPin, Loader2, Package, CheckCircle, AlertCircle, Building2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { formatCurrency, getDaysBetween, calculateRentalCost, getConditionLabel } from '@/lib/utils'
+import { formatCurrency, getDaysBetween, calculateRentalCost, calculateDepositAmount, getConditionLabel } from '@/lib/utils'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
@@ -147,6 +147,10 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
       )
     : 0
 
+  const depositAmount = equipment && totalCost > 0
+    ? calculateDepositAmount(totalCost, equipment.deposit_amount)
+    : 0
+
   const isBuying = transactionMode === 'buy'
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -241,6 +245,7 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
             start_date: formData.start_date,
             end_date: formData.end_date,
             total_amount: totalCost,
+            deposit_amount: depositAmount,
             delivery_address: formData.delivery_address || null,
             delivery_latitude: formData.delivery_latitude,
             delivery_longitude: formData.delivery_longitude,
@@ -331,7 +336,12 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-6">
-        <div className="grid lg:grid-cols-5 gap-6">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="grid lg:grid-cols-5 gap-6"
+        >
           {/* Equipment Info - Sidebar */}
           <div className="lg:col-span-2">
             <div className="bg-[#141414] rounded-xl border border-[#262626] overflow-hidden">
@@ -421,10 +431,21 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
                       <span className="text-[#737373]">Duration</span>
                       <span className="font-mono">{days} day{days !== 1 ? 's' : ''}</span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[#737373] text-sm">Estimated Total</span>
-                      <span className="text-xl font-mono font-semibold text-emerald-400">{formatCurrency(totalCost)}</span>
+                    <div className="flex items-center justify-between mb-2 text-sm">
+                      <span className="text-[#737373]">Rental Total</span>
+                      <span className="font-mono">{formatCurrency(totalCost)}</span>
                     </div>
+                    <div className="flex items-center justify-between mb-2 text-sm pb-2 border-b border-emerald-500/20">
+                      <span className="text-[#737373]">Security Deposit (20%)</span>
+                      <span className="font-mono">{formatCurrency(depositAmount)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#737373] text-sm">Total Due</span>
+                      <span className="text-xl font-mono font-semibold text-emerald-400">{formatCurrency(totalCost + depositAmount)}</span>
+                    </div>
+                    <p className="text-xs text-[#525252] mt-2">
+                      * Deposit will be refunded after equipment return
+                    </p>
                   </div>
                 )}
               </div>
@@ -439,10 +460,10 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
                   <button
                     type="button"
                     onClick={() => setTransactionMode('rent')}
-                    className={`flex-1 py-2 rounded-lg text-sm border transition-colors ${
+                    className={`flex-1 py-2 rounded-lg text-sm border transition-all duration-200 ${
                       transactionMode === 'rent'
-                        ? 'border-emerald-500 bg-emerald-500/15 text-emerald-300'
-                        : 'border-[#262626] text-gray-400 hover:text-white'
+                        ? 'border-emerald-500 bg-emerald-500/15 text-emerald-300 shadow-lg shadow-emerald-500/20'
+                        : 'border-[#262626] text-gray-400 hover:text-white hover:border-[#404040]'
                     }`}
                   >
                     Rent
@@ -450,10 +471,10 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
                   <button
                     type="button"
                     onClick={() => setTransactionMode('buy')}
-                    className={`flex-1 py-2 rounded-lg text-sm border transition-colors ${
+                    className={`flex-1 py-2 rounded-lg text-sm border transition-all duration-200 ${
                       transactionMode === 'buy'
-                        ? 'border-cyan-500 bg-cyan-500/15 text-cyan-300'
-                        : 'border-[#262626] text-gray-400 hover:text-white'
+                        ? 'border-cyan-500 bg-cyan-500/15 text-cyan-300 shadow-lg shadow-cyan-500/20'
+                        : 'border-[#262626] text-gray-400 hover:text-white hover:border-[#404040]'
                     }`}
                   >
                     Buy
@@ -582,14 +603,14 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
               <div className="flex gap-3">
                 <Link
                   href="/dashboard"
-                  className="flex-1 py-3 rounded-lg border border-[#262626] font-medium text-center text-gray-400 hover:text-white hover:bg-[#1a1a1a] transition-colors text-sm"
+                  className="flex-1 py-3 rounded-lg border border-[#262626] font-medium text-center text-gray-400 hover:text-white hover:bg-[#1a1a1a] transition-all duration-200 text-sm"
                 >
                   Cancel
                 </Link>
                 <button
                   type="submit"
                   disabled={submitting || (!isBuying && (days === 0 || !formData.delivery_latitude)) || (isBuying && !purchaseOffer)}
-                  className="flex-1 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+                  className="flex-1 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm transform hover:scale-[1.02] active:scale-[0.98]"
                 >
                   {submitting ? (
                     <>
@@ -603,7 +624,7 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
               </div>
             </form>
           </div>
-        </div>
+        </motion.div>
       </main>
     </div>
   )

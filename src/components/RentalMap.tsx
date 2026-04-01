@@ -65,9 +65,11 @@ function MapController({ center }: { center: [number, number] }) {
 }
 
 export default function RentalMap({ rentals, equipment, fullScreen }: RentalMapProps) {
-  const [userLocation, setUserLocation] = useState<[number, number]>([40.7128, -74.0060]) // Default to NYC
+  const [userLocation, setUserLocation] = useState<[number, number]>([20.5937, 78.9629]) // Default to India center
+  const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
+    setIsLoaded(true)
     // Get user location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -85,6 +87,14 @@ export default function RentalMap({ rentals, equipment, fullScreen }: RentalMapP
   const mappableEquipment = equipment.filter(eq => eq.latitude && eq.longitude)
   const mappableRentals = rentals.filter(r => r.delivery_latitude && r.delivery_longitude)
 
+  if (!isLoaded) {
+    return (
+      <div className={`relative ${fullScreen ? 'h-full' : 'h-full'} rounded-xl overflow-hidden flex items-center justify-center bg-[#141414] border border-[#262626]`}>
+        <div className="animate-spin w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full" />
+      </div>
+    )
+  }
+
   return (
     <div className={`relative ${fullScreen ? 'h-full' : 'h-full'} rounded-xl overflow-hidden`}>
       <MapContainer
@@ -92,6 +102,8 @@ export default function RentalMap({ rentals, equipment, fullScreen }: RentalMapP
         zoom={10}
         className="h-full w-full"
         style={{ background: '#111827' }}
+        scrollWheelZoom={true}
+        zoomControl={true}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'

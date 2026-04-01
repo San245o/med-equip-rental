@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Loader2, Calendar, MapPin, Package, DollarSign, CheckCircle } from 'lucide-react'
 import { Equipment } from '@/types'
 import { createClient } from '@/lib/supabase/client'
-import { formatCurrency, getDaysBetween, calculateRentalCost, getConditionLabel } from '@/lib/utils'
+import { formatCurrency, getDaysBetween, calculateRentalCost, calculateDepositAmount, getConditionLabel } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 
@@ -61,6 +61,10 @@ export default function RentalRequestModal({ isOpen, onClose, equipment }: Renta
       )
     : 0
 
+  const depositAmount = equipment && totalCost > 0
+    ? calculateDepositAmount(totalCost, equipment.deposit_amount)
+    : 0
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!equipment) return
@@ -100,6 +104,7 @@ export default function RentalRequestModal({ isOpen, onClose, equipment }: Renta
           start_date: formData.start_date,
           end_date: formData.end_date,
           total_amount: totalCost,
+          deposit_amount: depositAmount,
           delivery_address: formData.delivery_address,
           delivery_latitude: formData.delivery_latitude,
           delivery_longitude: formData.delivery_longitude,
@@ -321,10 +326,21 @@ export default function RentalRequestModal({ isOpen, onClose, equipment }: Renta
                       <span className="text-gray-400">Duration</span>
                       <span className="font-medium">{days} day{days !== 1 ? 's' : ''}</span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-400">Estimated Total</span>
-                      <span className="text-2xl font-bold text-teal-400">{formatCurrency(totalCost)}</span>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-gray-400">Rental Total</span>
+                      <span className="font-medium">{formatCurrency(totalCost)}</span>
                     </div>
+                    <div className="flex items-center justify-between mb-2 pb-2 border-b border-teal-500/20">
+                      <span className="text-gray-400 text-sm">Security Deposit (20%)</span>
+                      <span className="font-medium">{formatCurrency(depositAmount)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Total Due</span>
+                      <span className="text-2xl font-bold text-teal-400">{formatCurrency(totalCost + depositAmount)}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      * Deposit refunded after equipment return
+                    </p>
                   </div>
                 )}
 
@@ -343,14 +359,14 @@ export default function RentalRequestModal({ isOpen, onClose, equipment }: Renta
                         <button
                           type="button"
                           onClick={onClose}
-                          className="flex-1 py-3 rounded-xl border border-gray-700 font-medium hover:bg-gray-800 transition-colors"
+                          className="flex-1 py-3 rounded-xl border border-gray-700 font-medium hover:bg-gray-800 transition-all duration-200"
                         >
                           Cancel
                         </button>
                         <button
                           type="submit"
                           disabled={loading || days === 0 || !formData.delivery_latitude || !formData.delivery_longitude}
-                          className="flex-1 py-3 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 font-medium hover:shadow-lg hover:shadow-teal-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                          className="flex-1 py-3 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 font-medium hover:shadow-lg hover:shadow-teal-500/25 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transform hover:scale-[1.02] active:scale-[0.98]"
                         >
                           {loading ? (
                             <>

@@ -51,19 +51,34 @@ export function calculateRentalCost(
   monthlyRate: number | null | undefined,
   days: number
 ): number {
+  if (days === 0) return 0;
+
   if (monthlyRate && days >= 30) {
     const months = Math.floor(days / 30)
     const remainingDays = days % 30
     return months * monthlyRate + remainingDays * dailyRate
   }
-  
+
   if (weeklyRate && days >= 7) {
     const weeks = Math.floor(days / 7)
     const remainingDays = days % 7
     return weeks * weeklyRate + remainingDays * dailyRate
   }
-  
+
   return days * dailyRate
+}
+
+export function calculateDepositAmount(
+  totalRentalCost: number,
+  equipmentDepositAmount?: number
+): number {
+  // If equipment has a specific deposit amount set, use it
+  if (equipmentDepositAmount && equipmentDepositAmount > 0) {
+    return equipmentDepositAmount;
+  }
+
+  // Otherwise, calculate as 20% of total rental cost
+  return Math.round(totalRentalCost * 0.2);
 }
 
 export function getStatusColor(status: string): string {
