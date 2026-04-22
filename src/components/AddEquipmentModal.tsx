@@ -3,14 +3,14 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Loader2, MapPin, Plus, Trash2, Clipboard } from 'lucide-react'
-import { Category } from '@/types'
+import { Category, Equipment } from '@/types'
 import { createClient } from '@/lib/supabase/client'
-import { uploadMultipleImages } from '@/lib/upload'
+import { deleteEquipmentImage, uploadImagesForListingMetadata, uploadMultipleImages } from '@/lib/upload'
+import { uploadListingToIpfs } from '@/lib/ipfs'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 
-// Dynamically import the map picker to avoid SSR issues
-const LocationPicker = dynamic(() => import('./LocationPicker'), { 
+const LocationPicker = dynamic(() => import('./LocationPicker'), {
   ssr: false,
   loading: () => (
     <div className="w-full h-48 rounded-xl bg-gray-800 animate-pulse flex items-center justify-center">
@@ -19,24 +19,45 @@ const LocationPicker = dynamic(() => import('./LocationPicker'), {
   )
 })
 
+type ListingImageItem =
+  | {
+      kind: 'existing'
+      previewUrl: string
+      imageUrl: string
+      ipfsCid?: string
+    }
+  | {
+      kind: 'new'
+      previewUrl: string
+      file: File
+    }
+
+interface EquipmentFormState {
+  listing_type: Equipment['listing_type']
+  name: string
+  description: string
+  category_id: string
+  brand: string
+  year_manufactured: string
+  condition: Equipment['condition']
+  daily_rate: string
+  weekly_rate: string
+  monthly_rate: string
+  sale_price: string
+  latitude: number | null
+  longitude: number | null
+}
+
 interface AddEquipmentModalProps {
   isOpen: boolean
   onClose: () => void
   categories: Category[]
+  mode?: 'create' | 'edit'
+  initialEquipment?: Equipment | null
 }
 
-export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEquipmentModalProps) {
-  const router = useRouter()
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const dropZoneRef = useRef<HTMLDivElement>(null)
-  
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [images, setImages] = useState<File[]>([])
-  const [imagePreview, setImagePreview] = useState<string[]>([])
-  const [isDragging, setIsDragging] = useState(false)
-  
-  const [formData, setFormData] = useState({
+function createEmptyFormData(): EquipmentFormState {
+  return {
     listing_type: 'rent',
     name: '',
     description: '',
@@ -48,25 +69,135 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
     weekly_rate: '',
     monthly_rate: '',
     sale_price: '',
-    latitude: null as number | null,
-    longitude: null as number | null,
-  })
+    latitude: null,
+    longitude: null,
+  }
+}
+
+function createFormDataFromEquipment(equipment?: Equipment | null): EquipmentFormState {
+  if (!equipment) {
+    return createEmptyFormData()
+  }
+
+  return {
+    listing_type: equipment.listing_type || 'rent',
+    name: equipment.name || '',
+    description: equipment.description || '',
+    category_id: equipment.category_id ? String(equipment.category_id) : '',
+    brand: equipment.brand || '',
+    year_manufactured: equipment.year_manufactured ? String(equipment.year_manufactured) : '',
+    condition: equipment.condition || 'good',
+    daily_rate: equipment.listing_type === 'sell' ? '' : String(equipment.daily_rate || ''),
+    weekly_rate: equipment.weekly_rate ? String(equipment.weekly_rate) : '',
+    monthly_rate: equipment.monthly_rate ? String(equipment.monthly_rate) : '',
+    sale_price: equipment.sale_price ? String(equipment.sale_price) : '',
+    latitude: equipment.latitude ?? null,
+    longitude: equipment.longitude ?? null,
+  }
+}
+
+function createInitialImageItems(equipment?: Equipment | null): ListingImageItem[] {
+  if (!equipment?.images?.length) return []
+
+  return equipment.images.map((imageUrl, index) => ({
+    kind: 'existing' as const,
+    previewUrl: imageUrl,
+    imageUrl,
+    ipfsCid: equipment.ipfs_image_cids?.[index],
+  }))
+}
+
+function revokeImagePreviews(items: ListingImageItem[]) {
+  for (const item of items) {
+    if (item.kind === 'new') {
+      URL.revokeObjectURL(item.previewUrl)
+    }
+  }
+}
+
+function buildEquipmentRecord(formData: EquipmentFormState, sellerId: string) {
+  return {
+    seller_id: sellerId,
+    listing_type: formData.listing_type,
+    name: formData.name,
+    description: formData.description || null,
+    category_id: formData.category_id ? parseInt(formData.category_id, 10) : null,
+    brand: formData.brand || null,
+    year_manufactured: formData.year_manufactured ? parseInt(formData.year_manufactured, 10) : null,
+    condition: formData.condition,
+    daily_rate: formData.listing_type === 'sell' ? 0 : parseFloat(formData.daily_rate || '0'),
+    weekly_rate: formData.listing_type === 'sell'
+      ? null
+      : (formData.weekly_rate ? parseFloat(formData.weekly_rate) : null),
+    monthly_rate: formData.listing_type === 'sell'
+      ? null
+      : (formData.monthly_rate ? parseFloat(formData.monthly_rate) : null),
+    sale_price: formData.listing_type === 'rent'
+      ? null
+      : (formData.sale_price ? parseFloat(formData.sale_price) : null),
+    latitude: formData.latitude,
+    longitude: formData.longitude,
+    available: true,
+  }
+}
+
+function appendListingHistory(history: string[] | undefined, nextCid: string): string[] {
+  const existingHistory = Array.isArray(history) ? history : []
+  return [...existingHistory.filter((cid) => cid !== nextCid), nextCid]
+}
+
+export default function AddEquipmentModal({
+  isOpen,
+  onClose,
+  categories,
+  mode = 'create',
+  initialEquipment = null,
+}: AddEquipmentModalProps) {
+  const router = useRouter()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const dropZoneRef = useRef<HTMLDivElement>(null)
+  const imageItemsRef = useRef<ListingImageItem[]>([])
+
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [imageItems, setImageItems] = useState<ListingImageItem[]>(() => createInitialImageItems(initialEquipment))
+  const [isDragging, setIsDragging] = useState(false)
+  const [formData, setFormData] = useState<EquipmentFormState>(() => createFormDataFromEquipment(initialEquipment))
+
+  const isEditing = mode === 'edit' && Boolean(initialEquipment)
+
+  useEffect(() => {
+    imageItemsRef.current = imageItems
+  }, [imageItems])
+
+  useEffect(() => {
+    return () => {
+      revokeImagePreviews(imageItemsRef.current)
+    }
+  }, [])
 
   const addImage = useCallback((file: File) => {
-    if (images.length >= 5) {
-      setError('Maximum 5 images allowed')
-      return
-    }
-    
-    setImages(prev => [...prev, file])
-    setImagePreview(prev => [...prev, URL.createObjectURL(file)])
-  }, [images.length])
+    setImageItems((previousItems) => {
+      if (previousItems.length >= 5) {
+        setError('Maximum 5 images allowed')
+        return previousItems
+      }
 
-  // Handle paste from clipboard
+      return [
+        ...previousItems,
+        {
+          kind: 'new',
+          file,
+          previewUrl: URL.createObjectURL(file),
+        },
+      ]
+    })
+  }, [])
+
   useEffect(() => {
-    const handlePaste = async (e: ClipboardEvent) => {
+    const handlePaste = (e: ClipboardEvent) => {
       if (!isOpen) return
-      
+
       const items = e.clipboardData?.items
       if (!items) return
 
@@ -88,16 +219,16 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
-    if (files.length + images.length > 5) {
+
+    if (files.length + imageItems.length > 5) {
       setError('Maximum 5 images allowed')
       return
     }
 
-    files.forEach(file => addImage(file))
+    files.forEach((file) => addImage(file))
     if (e.target) e.target.value = ''
   }
 
-  // Drag and drop handlers
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(true)
@@ -111,24 +242,36 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
-    
-    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))
-    if (files.length + images.length > 5) {
+
+    const files = Array.from(e.dataTransfer.files).filter((file) => file.type.startsWith('image/'))
+    if (files.length + imageItems.length > 5) {
       setError('Maximum 5 images allowed')
       return
     }
-    
-    files.forEach(file => addImage(file))
+
+    files.forEach((file) => addImage(file))
   }
 
   const removeImage = (index: number) => {
-    setImages(images.filter((_, i) => i !== index))
-    URL.revokeObjectURL(imagePreview[index])
-    setImagePreview(imagePreview.filter((_, i) => i !== index))
+    setImageItems((previousItems) => {
+      const itemToRemove = previousItems[index]
+      if (itemToRemove?.kind === 'new') {
+        URL.revokeObjectURL(itemToRemove.previewUrl)
+      }
+
+      return previousItems.filter((_, itemIndex) => itemIndex !== index)
+    })
   }
 
   const handleLocationChange = (lat: number, lng: number) => {
-    setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }))
+    setFormData((previous) => ({ ...previous, latitude: lat, longitude: lng }))
+  }
+
+  const resetForm = () => {
+    revokeImagePreviews(imageItemsRef.current)
+    setFormData(createFormDataFromEquipment(isEditing ? initialEquipment : null))
+    setImageItems(createInitialImageItems(isEditing ? initialEquipment : null))
+    setError(null)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -146,7 +289,6 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
         return
       }
 
-      // Check if user profile exists, create if not
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('id')
@@ -154,7 +296,6 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
         .single()
 
       if (profileError || !profile) {
-        // Create profile if it doesn't exist
         const { error: createProfileError } = await supabase
           .from('profiles')
           .insert({
@@ -162,7 +303,7 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
             full_name: user.email?.split('@')[0] || 'User',
             role: 'both',
           })
-        
+
         if (createProfileError) {
           console.error('Profile creation error:', createProfileError)
           setError('Failed to create user profile. Please try again.')
@@ -171,88 +312,143 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
         }
       }
 
-      // Create equipment entry
-      const equipmentData = {
-        seller_id: user.id,
-        listing_type: formData.listing_type,
-        name: formData.name,
-        description: formData.description || null,
-        category_id: formData.category_id ? parseInt(formData.category_id) : null,
-        brand: formData.brand || null,
-        year_manufactured: formData.year_manufactured ? parseInt(formData.year_manufactured) : null,
-        condition: formData.condition,
-        daily_rate: formData.listing_type === 'sell' ? 0 : parseFloat(formData.daily_rate || '0'),
-        weekly_rate: formData.listing_type === 'sell' ? null : (formData.weekly_rate ? parseFloat(formData.weekly_rate) : null),
-        monthly_rate: formData.listing_type === 'sell' ? null : (formData.monthly_rate ? parseFloat(formData.monthly_rate) : null),
-        sale_price: formData.listing_type === 'rent' ? null : (formData.sale_price ? parseFloat(formData.sale_price) : null),
-        latitude: formData.latitude,
-        longitude: formData.longitude,
-        available: true,
-      }
+      const equipmentData = buildEquipmentRecord(formData, user.id)
+      const existingImageItems = imageItems.filter(
+        (item): item is Extract<ListingImageItem, { kind: 'existing' }> => item.kind === 'existing'
+      )
+      const newImageItems = imageItems.filter(
+        (item): item is Extract<ListingImageItem, { kind: 'new' }> => item.kind === 'new'
+      )
+      const removedExistingImages = (initialEquipment?.images || []).filter(
+        (imageUrl) => !existingImageItems.some((item) => item.imageUrl === imageUrl)
+      )
 
-      console.log('Inserting equipment:', equipmentData)
+      let equipmentId = initialEquipment?.id
 
-      const { data: equipment, error: insertError } = await supabase
-        .from('equipment')
-        .insert(equipmentData)
-        .select()
-        .single()
+      if (!equipmentId) {
+        const { data: equipment, error: insertError } = await supabase
+          .from('equipment')
+          .insert(equipmentData)
+          .select()
+          .single()
 
-      if (insertError) {
-        console.error('Insert error details:', JSON.stringify(insertError, null, 2))
-        throw new Error(insertError.message || insertError.details || 'Failed to insert equipment')
-      }
-
-      // Upload images if any
-      if (images.length > 0 && equipment) {
-        try {
-          const imageUrls = await uploadMultipleImages(images, equipment.id)
-          
-          if (imageUrls.length > 0) {
-            await supabase
-              .from('equipment')
-              .update({ images: imageUrls })
-              .eq('id', equipment.id)
-          }
-        } catch (uploadErr) {
-          console.error('Image upload error:', uploadErr)
-          // Continue even if image upload fails
+        if (insertError) {
+          console.error('Insert error details:', JSON.stringify(insertError, null, 2))
+          throw new Error(insertError.message || insertError.details || 'Failed to insert equipment')
         }
+
+        if (!equipment) {
+          throw new Error('Failed to create equipment listing')
+        }
+
+        equipmentId = equipment.id
       }
 
-      // Reset form and close
+      if (!equipmentId) {
+        throw new Error('Missing equipment id for publish flow')
+      }
+
+      let uploadedNewImageUrls: string[] = []
+
+      try {
+        const compressedNewImages = await uploadImagesForListingMetadata(newImageItems.map((item) => item.file))
+
+        if (compressedNewImages.length > 0) {
+          uploadedNewImageUrls = await uploadMultipleImages(compressedNewImages, equipmentId, {
+            skipCompression: true,
+          })
+
+          if (uploadedNewImageUrls.length !== compressedNewImages.length) {
+            throw new Error('Failed to upload all listing images')
+          }
+        }
+
+        const finalImageUrls = [
+          ...existingImageItems.map((item) => item.imageUrl),
+          ...uploadedNewImageUrls,
+        ]
+
+        const listingMetadata = {
+          id: equipmentId,
+          seller_id: user.id,
+          listing_type: formData.listing_type,
+          name: formData.name,
+          description: formData.description || null,
+          category_id: formData.category_id ? parseInt(formData.category_id, 10) : null,
+          brand: formData.brand || null,
+          year_manufactured: formData.year_manufactured ? parseInt(formData.year_manufactured, 10) : null,
+          condition: formData.condition,
+          daily_rate: equipmentData.daily_rate,
+          weekly_rate: equipmentData.weekly_rate,
+          monthly_rate: equipmentData.monthly_rate,
+          sale_price: equipmentData.sale_price,
+          latitude: formData.latitude,
+          longitude: formData.longitude,
+          images: finalImageUrls,
+          previous_listing_ipfs_cid: initialEquipment?.listing_ipfs_cid || null,
+          snapshot_reason: isEditing ? 'listing_updated' : 'listing_created',
+          source: 'supabase-db',
+        }
+
+        const ipfsResult = await uploadListingToIpfs({
+          equipmentId,
+          metadata: listingMetadata,
+          images: compressedNewImages,
+          existingImages: existingImageItems.map((item) => ({
+            url: item.imageUrl,
+            cid: item.ipfsCid,
+          })),
+        })
+
+        const listingHistory = appendListingHistory(initialEquipment?.listing_ipfs_history, ipfsResult.listingCid)
+        const { error: updateError } = await supabase
+          .from('equipment')
+          .update({
+            ...equipmentData,
+            images: finalImageUrls,
+            ipfs_image_cids: ipfsResult.imageCids,
+            listing_ipfs_cid: ipfsResult.listingCid,
+            listing_ipfs_history: listingHistory,
+          })
+          .eq('id', equipmentId)
+
+        if (updateError) {
+          throw new Error(updateError.message || 'Failed to save listing IPFS metadata')
+        }
+
+        if (removedExistingImages.length > 0) {
+          await Promise.all(removedExistingImages.map((imageUrl) => deleteEquipmentImage(imageUrl)))
+        }
+      } catch (uploadError) {
+        if (uploadedNewImageUrls.length > 0) {
+          await Promise.all(uploadedNewImageUrls.map((imageUrl) => deleteEquipmentImage(imageUrl)))
+        }
+
+        if (!isEditing) {
+          await supabase
+            .from('equipment')
+            .delete()
+            .eq('id', equipmentId)
+        }
+
+        const message = uploadError instanceof Error
+          ? uploadError.message
+          : `Failed to ${isEditing ? 'update' : 'publish'} listing to IPFS`
+        throw new Error(message)
+      }
+
       resetForm()
       onClose()
       router.refresh()
     } catch (err: unknown) {
       console.error('Submit error:', err)
-      const errorMessage = err instanceof Error ? err.message : 'Failed to add equipment'
+      const errorMessage = err instanceof Error
+        ? err.message
+        : `Failed to ${isEditing ? 'update' : 'add'} equipment`
       setError(errorMessage)
     } finally {
       setLoading(false)
     }
-  }
-
-  const resetForm = () => {
-    setFormData({
-      listing_type: 'rent',
-      name: '',
-      description: '',
-      category_id: '',
-      brand: '',
-      year_manufactured: '',
-      condition: 'good',
-      daily_rate: '',
-      weekly_rate: '',
-      monthly_rate: '',
-      sale_price: '',
-      latitude: null,
-      longitude: null,
-    })
-    setImages([])
-    imagePreview.forEach(url => URL.revokeObjectURL(url))
-    setImagePreview([])
-    setError(null)
   }
 
   if (!isOpen) return null
@@ -260,34 +456,35 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-          onClick={onClose}
+          onClick={() => {
+            if (!loading) onClose()
+          }}
         />
 
-        {/* Modal */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           className="relative w-full max-w-2xl max-h-[90vh] bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden"
         >
-          {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-800">
-            <h2 className="text-xl font-semibold">Add Equipment</h2>
+            <h2 className="text-xl font-semibold">
+              {isEditing ? 'Update Equipment' : 'Add Equipment'}
+            </h2>
             <button
               onClick={onClose}
+              disabled={loading}
               className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="relative p-6 overflow-y-auto max-h-[calc(90vh-140px)] pb-28">
             {error && (
               <div className="mb-6 p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
@@ -295,16 +492,15 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
               </div>
             )}
 
-            {/* Image upload with paste support */}
             <div className="mb-6">
               <label className="block text-sm font-medium mb-2">
-                Images (up to 5) 
+                Images (up to 5)
                 <span className="text-gray-500 font-normal ml-2">
                   <Clipboard className="w-3 h-3 inline mr-1" />
                   Paste from clipboard supported
                 </span>
               </label>
-              <div 
+              <div
                 ref={dropZoneRef}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
@@ -313,19 +509,19 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
                   isDragging ? 'border-teal-500 bg-teal-500/10' : 'border-gray-700'
                 }`}
               >
-                {imagePreview.map((src, i) => (
-                  <div key={i} className="relative w-24 h-24 rounded-lg overflow-hidden group">
-                    <img src={src} alt="" className="w-full h-full object-cover" />
+                {imageItems.map((item, index) => (
+                  <div key={`${item.kind}-${item.previewUrl}-${index}`} className="relative w-24 h-24 rounded-lg overflow-hidden group">
+                    <img src={item.previewUrl} alt="" className="w-full h-full object-cover" />
                     <button
                       type="button"
-                      onClick={() => removeImage(i)}
+                      onClick={() => removeImage(index)}
                       className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
                     >
                       <Trash2 className="w-5 h-5 text-red-400" />
                     </button>
                   </div>
                 ))}
-                {images.length < 5 && (
+                {imageItems.length < 5 && (
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
@@ -335,7 +531,7 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
                     <span className="text-xs">Add</span>
                   </button>
                 )}
-                {images.length === 0 && (
+                {imageItems.length === 0 && (
                   <div className="flex-1 min-w-[200px] text-center py-4 text-gray-500 text-sm">
                     Drag & drop, click to browse, or paste (Ctrl+V)
                   </div>
@@ -363,7 +559,7 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
                     <button
                       key={option.value}
                       type="button"
-                      onClick={() => setFormData({ ...formData, listing_type: option.value })}
+                      onClick={() => setFormData({ ...formData, listing_type: option.value as Equipment['listing_type'] })}
                       className={`py-2.5 rounded-xl border text-sm transition-colors ${
                         formData.listing_type === option.value
                           ? 'border-teal-500 bg-teal-500/15 text-teal-300'
@@ -376,7 +572,6 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
                 </div>
               </div>
 
-              {/* Name */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-2">Equipment Name *</label>
                 <input
@@ -389,7 +584,6 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
                 />
               </div>
 
-              {/* Category */}
               <div>
                 <label className="block text-sm font-medium mb-2">Category</label>
                 <select
@@ -398,18 +592,17 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
                   className="w-full px-4 py-3 rounded-xl bg-gray-800 border border-gray-700 focus:border-teal-500 outline-none"
                 >
                   <option value="">Select category</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>{category.name}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Condition */}
               <div>
                 <label className="block text-sm font-medium mb-2">Condition *</label>
                 <select
                   value={formData.condition}
-                  onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, condition: e.target.value as Equipment['condition'] })}
                   required
                   className="w-full px-4 py-3 rounded-xl bg-gray-800 border border-gray-700 focus:border-teal-500 outline-none"
                 >
@@ -420,7 +613,6 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
                 </select>
               </div>
 
-              {/* Brand */}
               <div>
                 <label className="block text-sm font-medium mb-2">Brand</label>
                 <input
@@ -432,7 +624,6 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
                 />
               </div>
 
-              {/* Year */}
               <div>
                 <label className="block text-sm font-medium mb-2">Year Manufactured</label>
                 <input
@@ -446,13 +637,12 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
                 />
               </div>
 
-              {/* Location Picker */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-2">
                   <MapPin className="w-4 h-4 inline mr-1" />
                   Equipment Location *
                 </label>
-                <LocationPicker 
+                <LocationPicker
                   onLocationChange={handleLocationChange}
                   initialLat={formData.latitude}
                   initialLng={formData.longitude}
@@ -464,7 +654,6 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
                 )}
               </div>
 
-              {/* Description */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-2">Description</label>
                 <textarea
@@ -476,7 +665,6 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
                 />
               </div>
 
-              {/* Pricing */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-2">Pricing</label>
                 <div className="grid grid-cols-3 gap-3">
@@ -531,7 +719,9 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
                   </div>
                 </div>
                 <div className="mt-3 max-w-xs">
-                  <label className="block text-xs text-gray-400 mb-1">Sale Price {formData.listing_type === 'rent' ? '(optional)' : '*'}</label>
+                  <label className="block text-xs text-gray-400 mb-1">
+                    Sale Price {formData.listing_type === 'rent' ? '(optional)' : '*'}
+                  </label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">₹</span>
                     <input
@@ -550,21 +740,28 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
               </div>
             </div>
 
-            {/* Submit - sticky footer */}
             <div className="pointer-events-none">
               <div className="sticky bottom-0 pt-4">
                 <div className="w-full rounded-2xl border border-gray-800 bg-gray-900/90 backdrop-blur p-4 shadow-2xl pointer-events-auto">
                   <div className="flex flex-col gap-2 text-xs text-gray-400 mb-3">
-                    <span>Tip: Pin the equipment location on the map to enable the button.</span>
+                    <span>
+                      {isEditing
+                        ? 'Each update publishes a fresh immutable IPFS snapshot and appends it to listing history.'
+                        : 'Publishing creates an immutable IPFS snapshot for buyers to verify later.'}
+                    </span>
                     {!formData.latitude || !formData.longitude ? (
-                      <span className="text-amber-400">Location is required to add equipment.</span>
+                      <span className="text-amber-400">Location is required to publish this listing.</span>
                     ) : null}
                   </div>
                   <div className="flex gap-3">
                     <button
                       type="button"
-                      onClick={() => { resetForm(); onClose(); }}
-                      className="flex-1 py-3 rounded-xl border border-gray-700 font-medium hover:bg-gray-800 transition-colors"
+                      onClick={() => {
+                        resetForm()
+                        onClose()
+                      }}
+                      disabled={loading}
+                      className="flex-1 py-3 rounded-xl border border-gray-700 font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Cancel
                     </button>
@@ -576,10 +773,10 @@ export default function AddEquipmentModal({ isOpen, onClose, categories }: AddEq
                       {loading ? (
                         <>
                           <Loader2 className="w-5 h-5 animate-spin" />
-                          Adding...
+                          {isEditing ? 'Republishing...' : 'Publishing...'}
                         </>
                       ) : (
-                        'Add Equipment'
+                        isEditing ? 'Update Listing' : 'Add Equipment'
                       )}
                     </button>
                   </div>

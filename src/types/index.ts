@@ -41,6 +41,9 @@ export interface Equipment {
   monthly_rate?: number;
   sale_price?: number;
   images: string[];
+  ipfs_image_cids?: string[];
+  listing_ipfs_cid?: string;
+  listing_ipfs_history?: string[];
   specifications: Record<string, string>;
   latitude?: number;
   longitude?: number;

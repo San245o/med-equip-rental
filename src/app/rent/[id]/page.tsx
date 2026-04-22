@@ -2,12 +2,15 @@
 
 import { useState, useEffect, use } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Calendar, MapPin, Loader2, Package, CheckCircle, AlertCircle, Building2 } from 'lucide-react'
+import { ArrowLeft, Calendar, MapPin, Loader2, Package, CheckCircle, AlertCircle, Building2, ExternalLink, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { formatCurrency, getDaysBetween, calculateRentalCost, getConditionLabel } from '@/lib/utils'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
+import type { Equipment } from '@/types'
+import { ipfsGatewayUrl } from '@/lib/ipfs'
+import ListingHistoryPanel from '@/components/ListingHistoryPanel'
 
 // Dynamic import for LocationPicker to avoid SSR issues
 const LocationPicker = dynamic(() => import('@/components/LocationPicker'), { 
@@ -19,31 +22,7 @@ const LocationPicker = dynamic(() => import('@/components/LocationPicker'), {
   )
 })
 
-interface EquipmentWithSeller {
-  id: number
-  seller_id: string
-  category_id?: number
-  listing_type: 'rent' | 'sell' | 'both'
-  name: string
-  description?: string
-  brand?: string
-  model?: string
-  year_manufactured?: number
-  condition: 'new' | 'excellent' | 'good' | 'fair'
-  daily_rate: number
-  weekly_rate?: number
-  monthly_rate?: number
-  sale_price?: number
-  images: string[]
-  specifications: Record<string, string>
-  latitude?: number
-  longitude?: number
-  city?: string
-  available: boolean
-  featured: boolean
-  views_count: number
-  created_at: string
-  updated_at: string
+type EquipmentWithSeller = Omit<Equipment, 'seller' | 'category'> & {
   seller?: {
     id: string
     full_name: string
@@ -330,7 +309,7 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-6">
+      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
         <div className="grid lg:grid-cols-5 gap-6">
           {/* Equipment Info - Sidebar */}
           <div className="lg:col-span-2">
@@ -353,6 +332,24 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
                   <p className="text-xs text-[#737373] uppercase tracking-wider">{equipment.category.name}</p>
                 )}
                 <h2 className="text-lg font-semibold mt-1">{equipment.name}</h2>
+
+                {equipment.listing_ipfs_cid && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full border border-teal-500/20 bg-teal-500/10 text-teal-300 text-xs">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      Verified on IPFS
+                    </div>
+                    <a
+                      href={ipfsGatewayUrl(equipment.listing_ipfs_cid)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-teal-300 hover:text-teal-200 transition-colors"
+                    >
+                      View current CID
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                )}
                 
                 <div className="flex items-center gap-2 mt-2 flex-wrap">
                   <span className={`text-xs px-1.5 py-0.5 rounded ${
@@ -604,6 +601,11 @@ export default function RentEquipmentPage({ params }: { params: Promise<{ id: st
             </form>
           </div>
         </div>
+
+        <ListingHistoryPanel
+          currentCid={equipment.listing_ipfs_cid}
+          history={equipment.listing_ipfs_history}
+        />
       </main>
     </div>
   )

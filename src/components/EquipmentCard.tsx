@@ -1,17 +1,16 @@
 'use client'
 
 import { Equipment } from '@/types'
-import { formatCurrency, getConditionLabel } from '@/lib/utils'
+import { formatCurrency, getConditionLabel, shortenHash } from '@/lib/utils'
 import { MapPin, Package, Edit, Trash2, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 
 interface EquipmentCardProps {
   equipment: Equipment
-  onClick?: () => void
   isOwner?: boolean
 }
 
-export default function EquipmentCard({ equipment, onClick, isOwner }: EquipmentCardProps) {
+export default function EquipmentCard({ equipment, isOwner }: EquipmentCardProps) {
   const listingType = equipment.listing_type || 'rent'
   const detailHref = listingType === 'sell' ? `/rent/${equipment.id}?mode=buy` : `/rent/${equipment.id}`
 
@@ -82,6 +81,11 @@ export default function EquipmentCard({ equipment, onClick, isOwner }: Equipment
               {equipment.city}
             </span>
           )}
+          {equipment.listing_ipfs_cid && (
+            <span className="text-[11px] px-1.5 py-0.5 rounded border border-teal-500/20 bg-teal-500/10 text-teal-300">
+              Verified on IPFS {shortenHash(equipment.listing_ipfs_cid, 6, 4)}
+            </span>
+          )}
         </div>
 
         {/* Price */}
@@ -102,10 +106,13 @@ export default function EquipmentCard({ equipment, onClick, isOwner }: Equipment
         {/* Actions */}
         {isOwner ? (
           <div className="flex gap-2">
-            <button className="flex-1 py-2 rounded-lg bg-[#1c1c1c] text-[#a1a1a1] hover:bg-[#262626] hover:text-white text-sm transition-colors flex items-center justify-center gap-2">
+            <Link
+              href={`/dashboard/edit-equipment/${equipment.id}`}
+              className="flex-1 py-2 rounded-lg bg-[#1c1c1c] text-[#a1a1a1] hover:bg-[#262626] hover:text-white text-sm transition-colors flex items-center justify-center gap-2"
+            >
               <Edit className="w-3.5 h-3.5" />
               Edit
-            </button>
+            </Link>
             <button className="py-2 px-3 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">
               <Trash2 className="w-3.5 h-3.5" />
             </button>

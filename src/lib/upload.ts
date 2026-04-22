@@ -26,12 +26,13 @@ export async function compressImage(file: File): Promise<File> {
 export async function uploadEquipmentImage(
   file: File,
   equipmentId: string | number,
-  index: number
+  index: number,
+  options?: { skipCompression?: boolean }
 ): Promise<string | null> {
   const supabase = createClient()
   
   // Compress the image first
-  const compressedFile = await compressImage(file)
+  const compressedFile = options?.skipCompression ? file : await compressImage(file)
   
   const fileName = `${equipmentId}/${Date.now()}-${index}.webp`
   const filePath = `equipment/${fileName}`
@@ -57,24 +58,31 @@ export async function uploadEquipmentImage(
 
 export async function uploadMultipleImages(
   files: File[],
-  equipmentId: string | number
+  equipmentId: string | number,
+  options?: { skipCompression?: boolean }
 ): Promise<string[]> {
   const uploadPromises = files.map((file, index) =>
-    uploadEquipmentImage(file, equipmentId, index)
+    uploadEquipmentImage(file, equipmentId, index, options)
   )
   
   const results = await Promise.all(uploadPromises)
   return results.filter((url): url is string => url !== null)
 }
 
+export async function uploadImagesForListingMetadata(files: File[]): Promise<File[]> {
+  const compressedFiles = await Promise.all(files.map((file) => compressImage(file)))
+  return compressedFiles
+}
+
 export async function deleteEquipmentImage(imageUrl: string): Promise<boolean> {
   const supabase = createClient()
   
-  // Extract file path from URL
-  const urlParts = imageUrl.split('/equipment-images/')
-  if (urlParts.length < 2) return false
-  
-  const filePath = `equipment/${urlParts[1]}`
+  // Extract relative path from public URL: .../equipment-images/<path>
+  const marker = '/equipment-images/'
+  const markerIndex = imageUrl.indexOf(marker)
+  if (markerIndex === -1) return false
+  const filePath = imageUrl.slice(markerIndex + marker.length)
+  if (!filePath) return false
   
   const { error } = await supabase.storage
     .from('equipment-images')

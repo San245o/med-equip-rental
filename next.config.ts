@@ -15,6 +15,16 @@ const nextConfig: NextConfig = {
         hostname: 'xthkfmyoyhbekahppgty.supabase.co',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'gateway.pinata.cloud',
+        pathname: '/ipfs/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'ipfs.io',
+        pathname: '/ipfs/**',
+      },
     ],
   },
 };
