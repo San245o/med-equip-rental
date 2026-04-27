@@ -13,16 +13,16 @@ function getPinataHeaders(): Headers {
   const apiSecret = process.env.PINATA_API_SECRET
   const jwt = process.env.PINATA_JWT
 
+  if (jwt) {
+    return new Headers({
+      Authorization: `Bearer ${jwt}`,
+    })
+  }
+
   if (apiKey && apiSecret) {
     return new Headers({
       pinata_api_key: apiKey,
       pinata_secret_api_key: apiSecret,
-    })
-  }
-
-  if (jwt) {
-    return new Headers({
-      Authorization: `Bearer ${jwt}`,
     })
   }
 
@@ -75,12 +75,12 @@ async function pinFile(file: Blob, name: string): Promise<string> {
 }
 
 async function pinJson(payload: unknown, name: string): Promise<string> {
+  const headers = getPinataHeaders()
+  headers.set('Content-Type', 'application/json')
+
   const response = await fetch(PINATA_JSON_ENDPOINT, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...getPinataHeaders(),
-    },
+    headers,
     body: JSON.stringify({
       pinataMetadata: { name },
       pinataContent: payload,
