@@ -8,22 +8,22 @@ interface ExistingListingImage {
   cid?: string
 }
 
-function getPinataHeaders() {
+function getPinataHeaders(): Headers {
   const apiKey = process.env.PINATA_API_KEY
   const apiSecret = process.env.PINATA_API_SECRET
   const jwt = process.env.PINATA_JWT
 
   if (apiKey && apiSecret) {
-    return {
+    return new Headers({
       pinata_api_key: apiKey,
       pinata_secret_api_key: apiSecret,
-    }
+    })
   }
 
   if (jwt) {
-    return {
+    return new Headers({
       Authorization: `Bearer ${jwt}`,
-    }
+    })
   }
 
   throw new Error(
