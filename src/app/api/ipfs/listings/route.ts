@@ -11,15 +11,24 @@ interface ExistingListingImage {
 function getPinataHeaders() {
   const apiKey = process.env.PINATA_API_KEY
   const apiSecret = process.env.PINATA_API_SECRET
+  const jwt = process.env.PINATA_JWT
 
-  if (!apiKey || !apiSecret) {
-    throw new Error('Pinata credentials are not configured')
+  if (apiKey && apiSecret) {
+    return {
+      pinata_api_key: apiKey,
+      pinata_secret_api_key: apiSecret,
+    }
   }
 
-  return {
-    pinata_api_key: apiKey,
-    pinata_secret_api_key: apiSecret,
+  if (jwt) {
+    return {
+      Authorization: `Bearer ${jwt}`,
+    }
   }
+
+  throw new Error(
+    'Pinata credentials are not configured. Set PINATA_JWT or PINATA_API_KEY and PINATA_API_SECRET.'
+  )
 }
 
 function getGatewayBaseUrl(): string {
